@@ -148,22 +148,24 @@ class AdventuresLog:
         self.log_items = self.__parse_adventurer_log__()
 
     def __parse_adventurer_log__(self):
-        feed = urllib2.urlopen(self.adventurer_log_link)
-        log_html = BeautifulSoup(feed.read(), 'xml')
-        entries = []
-        for logitem in log_html.findAll('item'):
-            logitem.hidden = True
-            log_entry = AdventurerLogEntry(unicode(logitem.title.string), unicode(logitem.description.string), unicode(logitem.pubDate.string))
-            entries.append(log_entry)
-        return entries
+        try:
+            feed = urllib2.urlopen(self.adventurer_log_link)
+            log_html = BeautifulSoup(feed.read(), 'xml')
+            entries = []
+            for logitem in log_html.findAll('item'):
+                logitem.hidden = True
+                log_entry = AdventurerLogEntry(unicode(logitem.title.string), unicode(logitem.description.string), unicode(logitem.pubDate.string))
+                entries.append(log_entry)
+            return entries
+        except:
+            return [AdventurerLogEntry("Error Parsing Adventurer Log","There was an error parsing the adventurers log for " + self.username + "; Either that users doesn't exist, or they've got their feed set to private.", str(local_time()))]
 
     def print_log(self):
         table = Texttable(140)
         table.set_cols_dtype(['t', 't', 't'])
-        table.set_cols_align(['l', 'l', 'l'])
+        table.set_cols_align(['c', 'c', 'c'])
         table.add_row(['Action','Description','Date'])
         for logitem in self.log_items:
-            print "Status = " + logitem.status + " Desc = " + logitem.description + " date = " + logitem.date
             table.add_row([logitem.status, logitem.description, logitem.date])
         print table.draw()
 
