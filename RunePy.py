@@ -1,8 +1,12 @@
 import urllib2
 import urllib
 import re
+import os
+import sys
+from time import strftime, localtime
 from texttable import Texttable
 from termcolor import colored
+from bs4 import BeautifulSoup
 
 def find_between(s, first, last):
     try:
@@ -11,6 +15,12 @@ def find_between(s, first, last):
         return s[start:end]
     except ValueError:
         return ""
+
+def clear_console():
+    os.system("cls" if os.name == "nt" else "clear")
+
+def local_time():
+    return strftime("%I:%M:%S %d-%m-%Y", localtime())
 
 
 class SearchItem:
@@ -69,6 +79,7 @@ class GrandExhangeSearch:
         self.search_results = self.__get_search_entries__(pagedata)
 
     def __get_search_amount__(self, pagedata):
+
         #Find the data to parse to find our amount of results
         searchresults = find_between(pagedata, self.__RESULTS_TAG__[0], self.__RESULTS_TAG__[1])
         #Find the amount of results and format the commas in it
@@ -118,19 +129,101 @@ class GrandExhangeSearch:
             table.add_row([item.itemname, item.itemprice, colored(item.itemchange,itemchange_color)])
         print table.draw()
 
-while True:
-    itemsearch = raw_input("Please enter an item name: ")
-    if itemsearch:
-        geItem = GrandExhangeSearch(itemsearch)
-        while True:
-            viewitems = raw_input("There were " + str(geItem.search_results_count) + " results to your search, view them? [y/n]: ").lower()
-            if viewitems:
-                if viewitems == "y" or viewitems == "yes":
-                    geItem.view_search_results()
-                    break
-                elif viewitems == "n" or viewitems == "no":
-                    break
+
+class AdventurerLogEntry:
+
+    def __init__(self, status, description, date):
+        self.status = status
+        self.date = date
+        self.description = description
+
+class AdventuresLog:
+    __LOG_BASE_URL__ = "http://services.runescape.com/m=adventurers-log/rssfeed?searchName="
+
+    def __init__(self, username):
+        #Store our username
+        self.username = username
+        #Store our adventurer's log link
+        self.adventurer_log_link = self.__LOG_BASE_URL__ + urllib.quote_plus(username)
+        self.log_items = self.__parse_adventurer_log__()
+
+    def __parse_adventurer_log__(self):
+        feed = urllib2.urlopen(self.adventurer_log_link)
+        log_html = BeautifulSoup(feed.read(), 'xml')
+        entries = []
+        for logitem in log_html.findAll('item'):
+            logitem.hidden = True
+            log_entry = AdventurerLogEntry(unicode(logitem.title.string), unicode(logitem.description.string), unicode(logitem.pubDate.string))
+            entries.append(log_entry)
+        return entries
+
+    def print_log(self):
+        table = Texttable(140)
+        table.set_cols_dtype(['t', 't', 't'])
+        table.set_cols_align(['l', 'l', 'l'])
+        table.add_row(['Action','Description','Date'])
+        for logitem in self.log_items:
+            print "Status = " + logitem.status + " Desc = " + logitem.description + " date = " + logitem.date
+            table.add_row([logitem.status, logitem.description, logitem.date])
+        print table.draw()
+
+
+def item_search():
+    while True:
+        itemsearch = raw_input("Please enter an item name: ")
+        if itemsearch:
+            geItem = GrandExhangeSearch(itemsearch)
+            while True:
+                clear_console()
+                viewitems = raw_input("There were " + str(geItem.search_results_count) + " results to your search, view them? [y/n]: ").lower()
+                if viewitems:
+                    if viewitems == "y" or viewitems == "yes":
+                        geItem.view_search_results()
+                        break
+                    elif viewitems == "n" or viewitems == "no":
+                        break
+                else:
+                    clear_console()
+                    print "Invalid option, please try again."
+        else:
+            break
+
+def adventurer_log():
+    while True:
+        username = raw_input("Enter the username you wish to view, or enter 'exit' to return to the main menu: ")
+        if username:
+            if username.lower() == "exit":
+                break
             else:
-                print "Invalid option, please try again."
+                adventurerlog = AdventuresLog(username)
+                adventurerlog.print_log()
+                raw_input("Press any key to continue...")
+                clear_console()
+        else:
+            print colored("You didn't enter a username... Please try again.", "red")
+
+
+def exit_prompt():
+    print "Thank you for using RunePy. Press any key to exit..."
+    raw_input("")
+    sys.exit(0)
+
+while True:
+    print "Welcome to " + colored("RunePy", "green") + "."
+    print "[1] Grand Exchange Search"
+    print "[2] Adventurer Log Viewer"
+    print "[0] " + colored("Exit", "yellow")
+    user_option = raw_input("Please enter the option number: ")
+    if user_option:
+        if user_option == "0":
+            exit_prompt()
+        elif user_option == "1":
+            item_search()
+        elif user_option == "2":
+            adventurer_log()
+        else:
+            print "You've not selected an option... Please try again"
+            clear_console()
     else:
-        break
+        print "You've not selected an option... Please try again"
+        clear_console()
